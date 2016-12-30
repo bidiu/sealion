@@ -1,0 +1,171 @@
+/* body */
+body {
+	margin: 0px;
+	background-color: #2BAC60;
+	font-family: "Helvetica", "Arial";
+}
+
+/* header */
+div#header {
+	width: 100%;
+	position: fixed;
+	left: 0;
+	top: 0;
+	z-index: 200;
+}
+
+div#header_main {
+	width: 100%;
+	height: 70px;
+	background-color: #232323;
+	z-index: 200;
+}
+
+div#logo {
+	margin-top: 5px;
+	margin-right: 380px;
+}
+
+/*span#logo_text {
+	font-family: 'Dosis', sans-serif;
+	font-size: 36px;
+	color: #FFFFFF;
+}*/
+
+img#logo_img {
+	height: 51px;
+}
+
+div#header_underline {
+	height: 5px;
+	width: 100%;
+	background: -webkit-linear-gradient(top, #232323, #FFFFFF);
+	opacity: 0.4;
+	z-index: 200;
+}
+
+a#pause_button {
+	display: block;
+	text-align: center;
+	padding-top: 10px;
+	margin-left: 380px;
+	width: 90px;
+	height: 25px;
+	border-color: #FFFFFF;
+	border-width: 1px;
+	border-radius: 5px;
+	border-style: solid;
+	background-color: transparent;
+	color: #FFFFFF;
+	text-decoration: none;
+	margin-top: 1px;
+}
+
+/* shoulder */
+div#shoulder {
+	margin-top: 70px;
+	margin-left: auto;
+	margin-right: auto;
+	width: 1100px;
+	height: 180px;
+}
+
+div#shoulder_content {
+	width: 1000px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+div#shoulder_content_left {
+	width: 650px;
+	vertical-align: middle;
+}
+
+div#shoulder_content_right {
+	width: 350px;
+	vertical-align: middle;
+}
+
+p#shoulder_content_lines {
+	margin-left: 20px;
+}
+
+span#shoulder_content_first_line {
+	color: #404040;
+	font-family: "Helvetica", "Arial";
+}
+
+span#shoulder_content_second_line {
+	color: #FFFFFF;
+	font-size: 42px;
+	line-height: 50px;
+}
+
+/* tables */
+div.table_container {
+	/*width: 100%;*/
+	display: table;
+	border-spacing: 0px;
+}
+
+div.table_row {
+	width: 100%;
+	display: table-row;
+}
+
+div.table_cell {
+	display: table-cell;
+}
+
+div.col_left, div.col_right {
+	width: 50%;
+	vertical-align: middle;
+}
+
+/* charts */
+div#charts_container {
+	background-color: #FFFFFF;
+	width: 100%;
+}
+
+/* footer */
+div#footer {
+	margin-left: auto;
+	margin-right: auto;
+	width: 1100px;
+}
+
+div#promotion_container {
+	margin-top: 20px;
+	margin-left: auto;
+	margin-right: auto;
+	width: 750px;
+	font-family: "Helvetica", "Arial";
+	font-size: 17px;
+	line-height: 25px;
+}
+
+div#promotion_container div.table_cell {
+	width: 250px;
+	padding-left: 12px;
+	padding-right: 12px;
+}
+
+p.promotion_title {
+	color: #FFFFFF;
+}
+
+p.promotion_content {
+	color: #404040;
+}
+
+div#copyright_container {
+	padding-top: 30px;
+	font-size: 12px;
+}
+
+
+
+
+
+

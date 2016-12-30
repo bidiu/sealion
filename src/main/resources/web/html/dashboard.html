@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<link href='http://fonts.googleapis.com/css?family=Dosis:700' rel='stylesheet' type='text/css'>
+	<meta charset="utf-8">
+	<title>SeaLion Dashboard</title>
+	<link type="text/css" rel="stylesheet" href="../css/dashboard.css">
+	<script src="../js/zingchart_trial/zingchart.min.js"></script>
+	<script src="../js/jquery-1.11.2.min.js"></script>
+</head>
+<body>
+	<div id="header">
+		<div id="header_main" class="table_container">
+			<div class="table_row">
+				<div class="table_cell col_left" align="right">
+					<div id="logo">
+						<!-- <span id="logo_text">sealion</span> -->
+						<img src="../img/logo.png" id="logo_img">
+					</div>
+				</div>
+				<div class="table_cell col_right" align="left">
+					<a href="javascript:void(0)" id="pause_button">Pause</a>
+				</div>
+			</div>
+		</div>
+		<div id="header_underline"></div>
+	</div>
+	<div id="shoulder">
+		<div class="table_container" id="shoulder_content">
+			<div class="table_row">
+				<div class="table_cell" id="shoulder_content_left">
+					<p id="shoulder_content_lines">
+						<span id="shoulder_content_first_line">Sealion Dashboard</span><br>
+						<span id="shoulder_content_second_line">Monitor your sealion instance, <br>real time<span>
+					</p>
+				</div>
+				<div class="table_cell" id="shoulder_content_right" align="center">
+					<img src="../img/shoulder_icon.png">
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="table_container" id="charts_container">
+		<div class="table_row">
+			<div class="table_cell col_left" align="right">
+				<div class="chart" id="memUsageChartDiv"></div>
+			</div>
+			<div class="table_cell col_right" align="left">
+				<div class="chart" id="taskQueueSizeChartDiv"></div>
+			</div>
+		</div>
+		<div class="table_row">
+			<div class="table_cell col_left" align="right">
+				<div class="chart" id="numOfConnChartDiv"></div>
+			</div>
+			<div class="table_cell col_right" align="left">
+				<div class="chart" id="networkChartDiv"></div>
+			</div>
+		</div>
+		<div class="table_row">
+			<div class="table_cell col_left" align="right">
+				<div class="chart" id="hitRatioChartDiv"></div>
+			</div>
+			<div class="table_cell col_right" align="left">
+				<div class="chart" id="blockingTimeChartDiv"></div>
+			</div>
+		</div>
+	</div>
+	<div id="footer">
+		<div class="table_container" id="promotion_container">
+			<div class="table_row">
+				<div class="table_cell" align="center">
+					<p>
+						<img src="../img/promote_icon_1.png">
+					</p>
+					<p class="promotion_title">
+						Distributed Layout
+					</p>
+					<p class="promotion_content">
+						Not limited by the power of single server, you can store everything, 
+						to unlimited volume, in the distributed storage system, which is 
+						really scalable. In other words, the more nodes you use in your cluster, 
+						the more power you get.
+					</p>
+				</div>
+				<div class="table_cell" align="center">
+					<p>
+						<img src="../img/promote_icon_2.png">
+					</p>
+					<p class="promotion_title">
+						Dynamic Failover
+					</p>
+					<p class="promotion_content">
+						Worry about unexpected shutdown? Not a big deal. Sealion is guaranteed 
+						99.9% uptime for usage availability once it starts. Even though it does shutdown for 
+						some reasons, the feature of failover will divert your throughput to other usable 
+						nodes dynamically without your care.
+					</p>
+				</div>
+				<div class="table_cell" align="center">
+					<p>
+						<img src="../img/promote_icon_3.png">
+					</p>
+					<p class="promotion_title">
+						Simple but Powerful APIs
+					</p>
+					<p class="promotion_content">
+						The APIs exposed by Sealion to Java is really simple to learn and use. In spite of 
+						its simplicity, however, it's kind of powerful too! With them you can do whatever 
+						you want easily, build you software soomthly and, of course, make your software 
+						with more performance and HA.
+					</p>
+				</div>
+			</div>
+		</div>
+		<div id="copyright_container" align="center">
+			<p>
+			    &copy; 2015, Sealion. All copyrights reserved.<br>
+			    All registered trademarks appearing on this page are the properties of their respective owner.
+			</p>
+		</div>
+	</div>
+	<script>
+		/*
+		 * 
+		 */
+		$(document).ready(function () {
+			initializePauseButton();
+			// Try to connection the WebSocket server.
+			webSocket = new WebSocket(webSocketUrl);
+			setWebSocketCallBack();
+		});
+
+		/*
+		 * Initialize the pause button's dynamic style.
+		 */
+		function initializePauseButton() {
+			// hover
+			$("#pause_button").hover(function (event) {
+				$(this).css("background-color", "#2BAC60");
+				$(this).css("border-color", "#2BAC60");
+			}, function (event) {
+				$(this).css("background-color", "transparent");
+				$(this).css("border-color", "#FFFFFF");
+			});
+			// click
+			$("#pause_button").click(function (event) {
+				if (paused) {
+					$(this).text("Pause");
+					paused = false;
+				}
+				else {
+					$(this).text("Proceed");
+					paused = true;
+				}
+			});
+		}
+
+		///////////////////////////  WebSocet Associated  /////////////////////////////
+
+		var webSocket;
+
+		/*
+		 * The URL of WebSocket server, which will push status data periodically.
+		 */
+		var webSocketUrl = "${webSocketUrl}$";
+
+		/*
+		 * Set websocket's call back methods.
+		 */
+		function setWebSocketCallBack() {
+			webSocket.onopen = function(evt) {
+				log("WebSocket", "Connected");
+	    	};
+			webSocket.onclose = function(evt) {
+				log("WebSocket", "Disconnected");
+			};
+			webSocket.onmessage = function(evt) {
+				onMessage(evt);
+			};
+			webSocket.onerror = function(evt) {
+				log("WebSocket", "Error");
+			};
+		}
+
+		/*
+		 * This function will be called when data comes through WebSocket.
+		 */
+		function onMessage(event) {
+			newestData = JSON.parse(event.data);
+			updateAllStatusRecords();
+			if (! paused) {
+				renderAllCharts();
+			} 
+		}
+		///////////////////////////////////////////////////////////////////////////////
+
+		//////////////////////////  Utility Function Definition  //////////////////////
+		/*
+		 * Log info to console.
+		 */
+		function log(label, detail) {
+			console.log("[" + label + "] " + detail);
+		}
+		///////////////////////////////////////////////////////////////////////////////
+
+		//////////////////  Chart Associated Variable Definition  /////////////////////
+
+		/*
+		 * Whether all charted've been rendered.
+		 * If so they will be redrawed, otherwise just render them.
+		 */
+		var rendered = false;
+
+		var paused = false;
+
+		// Chart's with
+		var CHART_WIDTH = 550;
+		// Chart's with
+		var CHART_HEIGHT = 400;
+
+		/*
+		 * The max number of dot in the plotted line chart.
+		 */
+		var MAX_DOT_NUM = 600;
+
+		/*
+		 * The time span from left side to right side of the chart.
+		 */
+		var TOTAL_TIME_SPAN = 10 * 60 * 1000;
+		////////////////////////////////////////////////////////////////////////////////
+
+		////////////////////////// Status Data Definition //////////////////////////////
+		// Element format: [ timeStamp, value ]
+		var newestData = null;
+
+		// Element format: [ timeStamp, value ]
+		var memUsage = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var memLimit = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var taskQueueSize = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var numOfConn = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var networkOut = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var networkIn = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var hitRatio = [  ];
+
+		// Element format: [ timeStamp, value ]
+		var blockingTime = [  ];
+		////////////////////////////////////////////////////////////////////////////////
+
+		////////////////////////////  Render Portion  //////////////////////////////////
+		/*
+		 * Refresh a records with new data.
+		 */
+		function updateAllStatusRecords() {
+			if (memUsage.length >= MAX_DOT_NUM) {
+				memUsage.shift();
+				memLimit.shift();
+				taskQueueSize.shift();
+				numOfConn.shift();
+				networkOut.shift();
+				networkIn.shift();
+				hitRatio.shift();
+				blockingTime.shift();
+			}
+			memUsage.push([newestData.timeStamp, newestData.memUsage]);
+			memLimit.push([newestData.timeStamp, newestData.memLimit]);
+			taskQueueSize.push([newestData.timeStamp, newestData.taskQueueSize]);
+			numOfConn.push([newestData.timeStamp, newestData.numOfConn]);
+			networkOut.push([newestData.timeStamp, parseInt(newestData.networkOut / 1024)]);
+			networkIn.push([newestData.timeStamp, parseInt(newestData.networkIn / 1024)]);
+			hitRatio.push([newestData.timeStamp, newestData.hitRatio]);
+			blockingTime.push([newestData.timeStamp, newestData.blockingTime]);
+		}
+
+		/*
+		 * Set chart's boundary, the left side and right side time stamp.
+		 */
+		function setAllChartsBoundary() {
+			// memUsage chart.
+			memUsageChartOption.graphset[0]["scale-x"]["max-value"] = newestData.timeStamp;
+			memUsageChartOption.graphset[0]["scale-x"]["min-value"] 
+					= newestData.timeStamp - TOTAL_TIME_SPAN;
+			// taskQueueSize chart.
+			taskQueueSizeChartOption.graphset[0]["scale-x"]["max-value"] = newestData.timeStamp;
+			taskQueueSizeChartOption.graphset[0]["scale-x"]["min-value"] 
+					= newestData.timeStamp - TOTAL_TIME_SPAN;
+			// numOfConn chart.
+			numOfConnChartOption.graphset[0]["scale-x"]["max-value"] = newestData.timeStamp;
+			numOfConnChartOption.graphset[0]["scale-x"]["min-value"] 
+					= newestData.timeStamp - TOTAL_TIME_SPAN;
+			// network chart.
+			networkChartOption.graphset[0]["scale-x"]["max-value"] = newestData.timeStamp;
+			networkChartOption.graphset[0]["scale-x"]["min-value"] 
+					= newestData.timeStamp - TOTAL_TIME_SPAN;
+			// hitRatio chart.
+			hitRatioChartOption.graphset[0]["scale-x"]["max-value"] = newestData.timeStamp;
+			hitRatioChartOption.graphset[0]["scale-x"]["min-value"] 
+					= newestData.timeStamp - TOTAL_TIME_SPAN;
+			// blockingTime chart.
+			blockingTimeChartOption.graphset[0]["scale-x"]["max-value"] = newestData.timeStamp;
+			blockingTimeChartOption.graphset[0]["scale-x"]["min-value"] 
+					= newestData.timeStamp - TOTAL_TIME_SPAN;
+		}
+
+		/*
+		 * Set all charts' data.
+		 * Should be called when render for the first time.
+		 */
+		function setAllChartsData() {
+			memUsageChartOption.graphset[0].series[0].values = memUsage;
+			memUsageChartOption.graphset[0].series[1].values = memLimit;
+			taskQueueSizeChartOption.graphset[0].series[0].values = taskQueueSize;
+			numOfConnChartOption.graphset[0].series[0].values = numOfConn;
+			networkChartOption.graphset[0].series[0].values = networkOut;
+			networkChartOption.graphset[0].series[1].values = networkIn;
+			hitRatioChartOption.graphset[0].series[0].values = hitRatio;
+			blockingTimeChartOption.graphset[0].series[0].values = blockingTime;
+		}
+
+		/*
+		 * Set all charts' scale Y.
+		 * Should be called only once, before render charts 
+		 * for the first time.
+		 */
+		function setAllChartsScaleY() {
+			// memUsage chart.
+			var memLimit = newestData.memLimit;
+			var step = Math.pow(10, String(memLimit).length - 2);
+			memUsageChartOption.graphset[0]["scale-y"].values = "0:" + (memLimit + step) + ":" + step;
+			// taskQueueSize chart.
+			// Auto for now just.
+			// numOfConnection chart.
+			// Auto for now just.
+			// network chart.
+			networkChartOption.graphset[0]["scale-y"].values = "0:13000:1000";
+			// hitRatio chart.
+			hitRatioChartOption.graphset[0]["scale-y"].values = "0:100:10";
+			// blockingTime chart.
+			blockingTimeChartOption.graphset[0]["scale-y"].values = "0:10:1";
+		}
+
+		/*
+		 * Render the chart.
+		 */
+		function renderAllCharts() {
+			setAllChartsBoundary();
+			if (rendered) {
+				/*
+				 * redraw all the charts.
+				 */
+				// redraw memUsage chart.
+				zingchart.exec("memUsageChartDiv", "modify", {
+					data: memUsageChartOption.graphset[0]
+				});
+				// redraw taskQueueSize chart.
+				zingchart.exec("taskQueueSizeChartDiv", "modify", {
+					data: taskQueueSizeChartOption.graphset[0]
+				});
+				// redraw numOfConn chart.
+				zingchart.exec("numOfConnChartDiv", "modify", {
+					data: numOfConnChartOption.graphset[0]
+				});
+				// redraw network chart.
+				zingchart.exec("networkChartDiv", "modify", {
+					data: networkChartOption.graphset[0]
+				});
+				// redraw hitRatio chart.
+				zingchart.exec("hitRatioChartDiv", "modify", {
+					data: hitRatioChartOption.graphset[0]
+				});
+				// redraw blockingTime chart.
+				zingchart.exec("blockingTimeChartDiv", "modify", {
+					data: blockingTimeChartOption.graphset[0]
+				});
+			}
+			else {
+				/*
+				 * render all charts for the first time.
+				 */
+				setAllChartsData();
+				setAllChartsScaleY();
+				// render memUsage chart.
+				zingchart.render({
+					id: 'memUsageChartDiv',
+					height: CHART_HEIGHT,
+					width: CHART_WIDTH,
+					data: memUsageChartOption
+				});
+				// render taskQueueSize chart.
+				zingchart.render({
+					id: 'taskQueueSizeChartDiv',
+					height: CHART_HEIGHT,
+					width: CHART_WIDTH,
+					data: taskQueueSizeChartOption
+				});
+				// render numOfConn chart.
+				zingchart.render({
+					id: 'numOfConnChartDiv',
+					height: CHART_HEIGHT,
+					width: CHART_WIDTH,
+					data: numOfConnChartOption
+				});
+				// render network chart.
+				zingchart.render({
+					id: 'networkChartDiv',
+					height: CHART_HEIGHT,
+					width: CHART_WIDTH,
+					data: networkChartOption
+				});
+				// render hitRatio chart.
+				zingchart.render({
+					id: 'hitRatioChartDiv',
+					height: CHART_HEIGHT,
+					width: CHART_WIDTH,
+					data: hitRatioChartOption
+				});
+				// render blockingTime chart.
+				zingchart.render({
+					id: 'blockingTimeChartDiv',
+					height: CHART_HEIGHT,
+					width: CHART_WIDTH,
+					data: blockingTimeChartOption
+				});
+				rendered = true;
+			}
+		}
+		////////////////////////////////////////////////////////////////////////////////
+
+		var memUsageChartOption = {
+			"border-top": "3px solid #7e7e7e",
+			"border-bottom": "3px solid #7e7e7e",
+			"border-right": "3px solid #7e7e7e",
+			"border-left": "3px solid #7e7e7e",
+			"border-color": "black",
+			"border-size": "5",
+			"font-family": "Helvetica, Arial",
+			"graphset": [{
+				"animate-type": "always",
+				"type":"line",
+				"background-color":"#fff",
+				// Local time, not UTC time.
+				"utc": false,
+				"title":{
+					"y":"15px",
+					"text": "Memory Usage",
+					"background-color":"none",
+					"font-color":"#05636c",
+					"font-size":"24px",
+					"height":"25px",
+					"font-family":"Helvetica, Arial"
+				},
+				"plotarea":{
+					"margin":"100 60 100 60"
+				},
+				"labels":[{
+				// 	"text":"Visitors: %plot-2-value",
+				// 	"default-value":"",
+				// 	"color":"#8da0cb",
+				// 	"x":"20%",
+				// 	"y":50,
+				// 	"width":120,
+				// 	"text-align":"left",
+				// 	"bold":0,
+				// 	"font-family":"Helvetica, Arial",
+				// 	"font-size":"14px",
+				// 	"font-weight":"bold"
+				// },{
+					"text":"Mem Limit: %plot-1-value MB",
+					"default-value":"",
+					"color":"#66c2a5",
+					"x":"45%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				},{
+					"text":"Mem Usage: %plot-0-value MB",
+					"default-value":"",
+					"color":"#fc8d62",
+					"x":"70%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				}],
+				"scale-x":{
+					"label":{
+						"font-size":"14px",
+						"font-family":"Helvetica, Arial",
+						"font-weight":"normal",
+						"offset-x":"10%",
+						"font-angle":360,
+						"offset-y":"-0px"
+					},
+					"item":{
+						"text-align":"center"
+					},
+					"zooming":1,
+					// "max-labels":12,
+					// "labels":[
+					// 	"Sept<br>19","Sept<br>20","Sept<br>21","Sept<br>22","Sept<br>23","Sept<br>24","Sept<br>25","Sept<br>26","Sept<br>27","Sept<br>28","Sept<br>29","Sept<br>30"
+					// ],
+					// "max-items":12,
+					"items-overlap":true,
+					"line-width":"1px",
+					"font-family":"Helvetica, Arial",
+					"guide":{
+						"line-width":"0px",
+						"alpha":0.2,
+						"line-style":"dashed",
+						"font-family":"Helvetica, Arial",
+						"font-size":"14px"
+					},
+					"tick":{
+						"line-width":"2px"
+					},
+					"minor-ticks":0,
+					"minor-tick":{
+						"alpha":1,
+						"placement":"outer"
+					},
+					"minor-guide":{
+						"visible":false
+					},
+					"transform":{
+						"type":"date",
+						"all":"%H:%i:%s",
+						"guide":{
+							"visible":false
+						},
+						"item":{
+							"visible":false
+						}
+					},
+					"step": "minute"
+				},
+				"crosshair-x":{
+					"plot-label":{
+						"visible":false
+					}
+				},
+				"scale-y":{
+					// "values":"0:16:1",
+					"item":{
+						"font-color":"#05636c",
+						"font-weight":"normal",
+                		"font-family":"Helvetica, Arial"
+            		},
+            		"font-family":"Helvetica, Arial",
+            		"font-size":"12px",
+            		"guide":{
+                		"line-width":"0px",
+                		"alpha":0.2,
+                		"line-style":"dashed",
+                		"font-family":"Helvetica, Arial",
+                		"font-size":"14px"
+            		}
+        		},
+        		"plot":{
+            		"line-width":1,
+            		"marker":{
+            		    "size":1,
+                		"visible":false
+            		}
+            		// "tooltip":{
+              //   		"font-family":"Helvetica, Arial",
+              //   		"font-size":"14px",
+              //   		"text":"There were %v%t on %data-days",
+              //   		"text-align":"left"
+            		// }
+        		},
+        		"series":[{
+                	// "values":[
+                	// 	134, 224, 335
+                	// ],
+                	// "data-days":[
+                	// 	"Sept 19","Sept 20","Sept 21","Sept 22","Sept 23","Sept 24","Sept 25","Sept 26","Sept 27","Sept 28","Sept 29","Sept 30"
+                	// ],
+                	"line-color":"#fc8d62",
+                	"aspect":"spline",
+                	"background-color":"#fc8d62",
+                	"alpha-area":".3",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+                	// "text":" returns"
+            	},{
+                	// "values":[
+                	// 	1625,1683,1659,1761,1904,1819,1631,1592,1498,1594,1782,1644
+                	// ],
+                	// "data-days":[
+                	// 	"Sept 19","Sept 20","Sept 21","Sept 22","Sept 23","Sept 24","Sept 25","Sept 26","Sept 27","Sept 28","Sept 29","Sept 30"
+                	// ],
+                	"line-color":"#66c2a5",
+                	"background-color":"#66c2a5",
+                	"alpha-area":".3",
+                	// "text":" visitors",
+                	"aspect":"spline",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	// },{
+             //    	"values":[
+             //    		314,1395,1292,1259,1269,1132,1012,1082,1116,1039,1132,1227
+             //    	],
+             //    	"data-days":[
+             //    		"Sept 19","Sept 20","Sept 21","Sept 22","Sept 23","Sept 24","Sept 25","Sept 26","Sept 27","Sept 28","Sept 29","Sept 30"
+             //    	],
+             //    	"line-color":"#8da0cb",
+             //    	"background-color":"#8da0cb",
+             //    	"aspect":"spline",
+             //    	"alpha-area":"0.2",
+             //    	"text":" clicks",
+             //    	"font-family":"Helvetica, Arial",
+             //    	"font-size":"14px"
+            	}]
+    		}]
+    	};
+
+    	var taskQueueSizeChartOption = {
+			"border-top": "3px solid #7e7e7e",
+			"border-bottom": "3px solid #7e7e7e",
+			"border-right": "3px solid #7e7e7e",
+			"border-left": "3px solid #7e7e7e",
+			"border-color": "black",
+			"border-size": "5",
+			"font-family": "Helvetica, Arial",
+			"graphset": [{
+				"animate-type": "always",
+				"type":"line",
+				"background-color":"#fff",
+				// Local time, not UTC time.
+				"utc": false,
+				"title":{
+					"y":"15px",
+					"text": "Task Queue Size",
+					"background-color":"none",
+					"font-color":"#05636c",
+					"font-size":"24px",
+					"height":"25px",
+					"font-family":"Helvetica, Arial"
+				},
+				"plotarea":{
+					"margin":"100 60 100 60"
+				},
+				"labels":[{
+					"text":"Task Queue Size: %plot-0-value",
+					"default-value":"",
+					"color":"#fc8d62",
+					"x":"70%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				}],
+				"scale-x":{
+					"item":{
+						"text-align":"center"
+					},
+					"zooming":1,
+					"items-overlap":true,
+					"line-width":"1px",
+					"font-family":"Helvetica, Arial",
+					"guide":{
+						"line-width":"0px",
+						"alpha":0.2,
+						"line-style":"dashed",
+						"font-family":"Helvetica, Arial",
+						"font-size":"14px"
+					},
+					"tick":{
+						"line-width":"2px"
+					},
+					"minor-ticks":0,
+					"minor-tick":{
+						"alpha":1,
+						"placement":"outer"
+					},
+					"minor-guide":{
+						"visible":false
+					},
+					"transform":{
+						"type":"date",
+						"all":"%H:%i:%s",
+						"guide":{
+							"visible":false
+						},
+						"item":{
+							"visible":false
+						}
+					},
+					"step": "minute"
+				},
+				"crosshair-x":{
+					"plot-label":{
+						"visible":false
+					}
+				},
+				"scale-y":{
+					"item":{
+						"font-color":"#05636c",
+						"font-weight":"normal",
+                		"font-family":"Helvetica, Arial"
+            		},
+            		"font-family":"Helvetica, Arial",
+            		"font-size":"12px",
+            		"guide":{
+                		"line-width":"0px",
+                		"alpha":0.2,
+                		"line-style":"dashed",
+                		"font-family":"Helvetica, Arial",
+                		"font-size":"14px"
+            		}
+        		},
+        		"plot":{
+            		"line-width":1,
+            		"marker":{
+            		    "size":1,
+                		"visible":false
+            		}
+        		},
+        		"series":[{
+                	"line-color":"#fc8d62",
+                	"aspect":"spline",
+                	"background-color":"#fc8d62",
+                	"alpha-area":".3",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	}]
+    		}]
+    	};
+
+    	var numOfConnChartOption = {
+			"border-top": "3px solid #7e7e7e",
+			"border-bottom": "3px solid #7e7e7e",
+			"border-right": "3px solid #7e7e7e",
+			"border-left": "3px solid #7e7e7e",
+			"border-color": "black",
+			"border-size": "5",
+			"font-family": "Helvetica, Arial",
+			"graphset": [{
+				"animate-type": "always",
+				"type":"line",
+				"background-color":"#fff",
+				// Local time, not UTC time.
+				"utc": false,
+				"title":{
+					"y":"15px",
+					// Chart title.
+					"text": "Num of Connection",
+					"background-color":"none",
+					"font-color":"#05636c",
+					"font-size":"24px",
+					"height":"25px",
+					"font-family":"Helvetica, Arial"
+				},
+				"plotarea":{
+					"margin":"100 60 100 60"
+				},
+				"labels":[{
+					// legend
+					"text":"Num of Connection: %plot-0-value",
+					"default-value":"",
+					"color":"#fc8d62",
+					"x":"70%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				}],
+				"scale-x":{
+					"item":{
+						"text-align":"center"
+					},
+					"zooming":1,
+					"items-overlap":true,
+					"line-width":"1px",
+					"font-family":"Helvetica, Arial",
+					"guide":{
+						"line-width":"0px",
+						"alpha":0.2,
+						"line-style":"dashed",
+						"font-family":"Helvetica, Arial",
+						"font-size":"14px"
+					},
+					"tick":{
+						"line-width":"2px"
+					},
+					"minor-ticks":0,
+					"minor-tick":{
+						"alpha":1,
+						"placement":"outer"
+					},
+					"minor-guide":{
+						"visible":false
+					},
+					"transform":{
+						"type":"date",
+						"all":"%H:%i:%s",
+						"guide":{
+							"visible":false
+						},
+						"item":{
+							"visible":false
+						}
+					},
+					"step": "minute"
+				},
+				"crosshair-x":{
+					"plot-label":{
+						"visible":false
+					}
+				},
+				"scale-y":{
+					"item":{
+						"font-color":"#05636c",
+						"font-weight":"normal",
+                		"font-family":"Helvetica, Arial"
+            		},
+            		"font-family":"Helvetica, Arial",
+            		"font-size":"12px",
+            		"guide":{
+                		"line-width":"0px",
+                		"alpha":0.2,
+                		"line-style":"dashed",
+                		"font-family":"Helvetica, Arial",
+                		"font-size":"14px"
+            		}
+        		},
+        		"plot":{
+            		"line-width":1,
+            		"marker":{
+            		    "size":1,
+                		"visible":false
+            		}
+        		},
+        		"series":[{
+                	"line-color":"#fc8d62",
+                	"aspect":"spline",
+                	"background-color":"#fc8d62",
+                	"alpha-area":".3",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	}]
+    		}]
+    	};
+
+    	var networkChartOption = {
+			"border-top": "3px solid #7e7e7e",
+			"border-bottom": "3px solid #7e7e7e",
+			"border-right": "3px solid #7e7e7e",
+			"border-left": "3px solid #7e7e7e",
+			"border-color": "black",
+			"border-size": "5",
+			"font-family": "Helvetica, Arial",
+			"graphset": [{
+				"animate-type": "always",
+				"type":"line",
+				"background-color":"#fff",
+				// Local time, not UTC time.
+				"utc": false,
+				"title":{
+					"y":"15px",
+					// chart title
+					"text": "Network",
+					"background-color":"none",
+					"font-color":"#05636c",
+					"font-size":"24px",
+					"height":"25px",
+					"font-family":"Helvetica, Arial"
+				},
+				"plotarea":{
+					"margin":"100 60 100 60"
+				},
+				"labels":[{
+					"text":"Network In: %plot-1-value KB/s",
+					"default-value":"",
+					"color":"#66c2a5",
+					"x":"45%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				},{
+					"text":"Network Out: %plot-0-value KB/s",
+					"default-value":"",
+					"color":"#fc8d62",
+					"x":"70%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				}],
+				"scale-x":{
+					"item":{
+						"text-align":"center"
+					},
+					"zooming":1,
+					"items-overlap":true,
+					"line-width":"1px",
+					"font-family":"Helvetica, Arial",
+					"guide":{
+						"line-width":"0px",
+						"alpha":0.2,
+						"line-style":"dashed",
+						"font-family":"Helvetica, Arial",
+						"font-size":"14px"
+					},
+					"tick":{
+						"line-width":"2px"
+					},
+					"minor-ticks":0,
+					"minor-tick":{
+						"alpha":1,
+						"placement":"outer"
+					},
+					"minor-guide":{
+						"visible":false
+					},
+					"transform":{
+						"type":"date",
+						"all":"%H:%i:%s",
+						"guide":{
+							"visible":false
+						},
+						"item":{
+							"visible":false
+						}
+					},
+					"step": "minute"
+				},
+				"crosshair-x":{
+					"plot-label":{
+						"visible":false
+					}
+				},
+				"scale-y":{
+					"item":{
+						"font-color":"#05636c",
+						"font-weight":"normal",
+                		"font-family":"Helvetica, Arial"
+            		},
+            		"font-family":"Helvetica, Arial",
+            		"font-size":"12px",
+            		"guide":{
+                		"line-width":"0px",
+                		"alpha":0.2,
+                		"line-style":"dashed",
+                		"font-family":"Helvetica, Arial",
+                		"font-size":"14px"
+            		}
+        		},
+        		"plot":{
+            		"line-width":1,
+            		"marker":{
+            		    "size":1,
+                		"visible":false
+            		}
+        		},
+        		"series":[{
+                	"line-color":"#fc8d62",
+                	"aspect":"spline",
+                	"background-color":"#fc8d62",
+                	"alpha-area":".3",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	},{
+                	"line-color":"#66c2a5",
+                	"background-color":"#66c2a5",
+                	"alpha-area":".3",
+                	"aspect":"spline",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	}]
+    		}]
+    	};
+
+    	var hitRatioChartOption = {
+			"border-top": "3px solid #7e7e7e",
+			"border-bottom": "3px solid #7e7e7e",
+			"border-right": "3px solid #7e7e7e",
+			"border-left": "3px solid #7e7e7e",
+			"border-color": "black",
+			"border-size": "5",
+			"font-family": "Helvetica, Arial",
+			"graphset": [{
+				"animate-type": "always",
+				"type":"line",
+				"background-color":"#fff",
+				// Local time, not UTC time.
+				"utc": false,
+				"title":{
+					"y":"15px",
+					// Chart title.
+					"text": "Hit Ratio",
+					"background-color":"none",
+					"font-color":"#05636c",
+					"font-size":"24px",
+					"height":"25px",
+					"font-family":"Helvetica, Arial"
+				},
+				"plotarea":{
+					"margin":"100 60 100 60"
+				},
+				"labels":[{
+					// legend
+					"text":"Hit Ratio: %plot-0-value %",
+					"default-value":"",
+					"color":"#fc8d62",
+					"x":"70%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				}],
+				"scale-x":{
+					"item":{
+						"text-align":"center"
+					},
+					"zooming":1,
+					"items-overlap":true,
+					"line-width":"1px",
+					"font-family":"Helvetica, Arial",
+					"guide":{
+						"line-width":"0px",
+						"alpha":0.2,
+						"line-style":"dashed",
+						"font-family":"Helvetica, Arial",
+						"font-size":"14px"
+					},
+					"tick":{
+						"line-width":"2px"
+					},
+					"minor-ticks":0,
+					"minor-tick":{
+						"alpha":1,
+						"placement":"outer"
+					},
+					"minor-guide":{
+						"visible":false
+					},
+					"transform":{
+						"type":"date",
+						"all":"%H:%i:%s",
+						"guide":{
+							"visible":false
+						},
+						"item":{
+							"visible":false
+						}
+					},
+					"step": "minute"
+				},
+				"crosshair-x":{
+					"plot-label":{
+						"visible":false
+					}
+				},
+				"scale-y":{
+					"item":{
+						"font-color":"#05636c",
+						"font-weight":"normal",
+                		"font-family":"Helvetica, Arial"
+            		},
+            		"font-family":"Helvetica, Arial",
+            		"font-size":"12px",
+            		"guide":{
+                		"line-width":"0px",
+                		"alpha":0.2,
+                		"line-style":"dashed",
+                		"font-family":"Helvetica, Arial",
+                		"font-size":"14px"
+            		}
+        		},
+        		"plot":{
+            		"line-width":1,
+            		"marker":{
+            		    "size":1,
+                		"visible":false
+            		}
+        		},
+        		"series":[{
+                	"line-color":"#fc8d62",
+                	"aspect":"spline",
+                	"background-color":"#fc8d62",
+                	"alpha-area":".3",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	}]
+    		}]
+    	};
+
+    	var blockingTimeChartOption = {
+			"border-top": "3px solid #7e7e7e",
+			"border-bottom": "3px solid #7e7e7e",
+			"border-right": "3px solid #7e7e7e",
+			"border-left": "3px solid #7e7e7e",
+			"border-color": "black",
+			"border-size": "5",
+			"font-family": "Helvetica, Arial",
+			"graphset": [{
+				"animate-type": "always",
+				"type":"line",
+				"background-color":"#fff",
+				// Local time, not UTC time.
+				"utc": false,
+				"title":{
+					"y":"15px",
+					// Chart title.
+					"text": "Blocking Time",
+					"background-color":"none",
+					"font-color":"#05636c",
+					"font-size":"24px",
+					"height":"25px",
+					"font-family":"Helvetica, Arial"
+				},
+				"plotarea":{
+					"margin":"100 60 100 60"
+				},
+				"labels":[{
+					// legend
+					"text":"Blocking Time: %plot-0-value s",
+					"default-value":"",
+					"color":"#fc8d62",
+					"x":"70%",
+					"y":50,
+					"width":120,
+					"text-align":"left",
+					"bold":0,
+					"font-family":"Helvetica, Arial",
+					"font-size":"12px",
+					"font-weight":"bold"
+				}],
+				"scale-x":{
+					"item":{
+						"text-align":"center"
+					},
+					"zooming":1,
+					"items-overlap":true,
+					"line-width":"1px",
+					"font-family":"Helvetica, Arial",
+					"guide":{
+						"line-width":"0px",
+						"alpha":0.2,
+						"line-style":"dashed",
+						"font-family":"Helvetica, Arial",
+						"font-size":"14px"
+					},
+					"tick":{
+						"line-width":"2px"
+					},
+					"minor-ticks":0,
+					"minor-tick":{
+						"alpha":1,
+						"placement":"outer"
+					},
+					"minor-guide":{
+						"visible":false
+					},
+					"transform":{
+						"type":"date",
+						"all":"%H:%i:%s",
+						"guide":{
+							"visible":false
+						},
+						"item":{
+							"visible":false
+						}
+					},
+					"step": "minute"
+				},
+				"crosshair-x":{
+					"plot-label":{
+						"visible":false
+					}
+				},
+				"scale-y":{
+					"item":{
+						"font-color":"#05636c",
+						"font-weight":"normal",
+                		"font-family":"Helvetica, Arial"
+            		},
+            		"font-family":"Helvetica, Arial",
+            		"font-size":"12px",
+            		"guide":{
+                		"line-width":"0px",
+                		"alpha":0.2,
+                		"line-style":"dashed",
+                		"font-family":"Helvetica, Arial",
+                		"font-size":"14px"
+            		}
+        		},
+        		"plot":{
+            		"line-width":1,
+            		"marker":{
+            		    "size":1,
+                		"visible":false
+            		}
+        		},
+        		"series":[{
+                	"line-color":"#fc8d62",
+                	"aspect":"spline",
+                	"background-color":"#fc8d62",
+                	"alpha-area":".3",
+                	"font-family":"Helvetica, Arial",
+                	"font-size":"14px"
+            	}]
+    		}]
+    	};
+	</script>
+</body>
+</html>
